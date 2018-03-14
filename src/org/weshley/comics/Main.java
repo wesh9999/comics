@@ -17,11 +17,10 @@ import java.util.*;
 import java.util.List;
 
 /* TODO:
-    - create github project
     - calendar dropdown
     - fix layout and resizing
-       - group combo fixed
-       - scrolling comic list with fixed with
+       - group combo fixed size
+       - scrolling comic list with fixed width
        - title in a larger font on left side above comic
        - date with next/prev buttons on right side above comic
        - resizing gives comic more space always
