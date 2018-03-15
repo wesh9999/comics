@@ -7,12 +7,27 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
+
+/* TODO:
+    - calendar dropdown
+    - add a message when adding/removing favorites
+    - add/remove favorite button not initially visible when unless the entire comic is visible.
+      probably fixed if i can figure out how to scale the image?
+    - ability to search for a comic in the list
+    - scale image to fit into available space
+    - add to and remove from favorites button
+       - write favorites to $HOME/.wcomics/comics.ini when changed in UI
+    - "downloading" progress indicator of some sort
+    - test support for image types other than gif
+    - what other strip servers are out there to pull from?
+    - package comic reader config files with code?  only favorites should be unique per user
+    - package jars with a launching script
+ */
 
 public class ReaderApp
 {
@@ -29,6 +44,9 @@ public class ReaderApp
    private JLabel _comicImage;
    private JButton _previousComicButton;
    private JButton _nextComicButton;
+   private JPanel _comicsButtonPanel;
+   private JButton _addFavoriteButton;
+   private JButton _removeFavoriteButton;
 
    private Calendar _currentDate = Calendar.getInstance();
    private List<ComicsReader> _readers = new ArrayList<>();
@@ -42,7 +60,7 @@ public class ReaderApp
    {
       try
       {
-         (new ReaderApp()).run();
+         (new ReaderApp()).run(args);
       }
       catch(Throwable t)
       {
@@ -56,7 +74,32 @@ public class ReaderApp
    }
 
 
-   private void run()
+   private void usage()
+   {
+      System.out.println("usage: java org.weshley.comics.ReaderApp {--find-go-comics}");
+   }
+
+
+   private void run(String[] args)
+      throws ComicsException
+   {
+      if(1 == args.length)
+      {
+         if(args[0].equals("--find-go-comics"))
+            GoComicsReader.generateIniFile();
+         else if(args[0].equals("--help"))
+            usage();
+         else
+            throw new ComicsException("Illegal argument '" + args[0]);
+      }
+      else if(0 == args.length)
+         launchReader();
+      else
+         throw new ComicsException("Illegal argument '" + args[0]);
+   }
+
+
+   private void launchReader()
       throws ComicsException
    {
       loadReaders();
@@ -197,6 +240,8 @@ public class ReaderApp
          _nextDayButton.setEnabled(false);
          _previousComicButton.setEnabled(false);
          _nextComicButton.setEnabled(false);
+         _addFavoriteButton.setEnabled(false);
+         _removeFavoriteButton.setEnabled(false);
       }
       else
       {
@@ -210,6 +255,57 @@ public class ReaderApp
             _comicsList.getSelectedIndex() < (_comicsList.getModel().getSize() - 1));
       }
       _dateLabel.setText(getCurrentDayFormatted());
+      _addFavoriteButton.setEnabled(true);
+      _removeFavoriteButton.setEnabled(true);
+   }
+
+
+   private void addToFavorites()
+      throws ComicsException
+   {
+      Comic c = (Comic) _comicsList.getSelectedValue();
+      if(null != c)
+      {
+         _favorites.add(c.getId());
+         writeFavoritesFile();
+      }
+   }
+
+
+   private void removeFromFavorites()
+      throws ComicsException
+   {
+      Comic c = (Comic) _comicsList.getSelectedValue();
+      if(null != c)
+      {
+         _favorites.remove(c.getId());
+         writeFavoritesFile();
+      }
+   }
+
+
+   private void writeFavoritesFile()
+      throws ComicsException
+   {
+      try
+      {
+         File iniFile = new File(getConfigDir(), "comics.ini");
+         if(iniFile.exists())
+            iniFile.delete();
+         FileWriter writer = new FileWriter(iniFile);
+         writer.write("[favorites]\n");
+         String group = _groupCombo.getSelectedItem().toString();
+         for(String id : _favorites)
+            writer.write(id + " = " + group + "\n");
+         writer.write("\n");
+         writer.flush();
+         writer.close();
+      }
+      catch(Exception ex)
+      {
+         throw new ComicsException("Error writing ini file: " + ex.getMessage(), ex);
+      }
+
    }
 
 
@@ -303,6 +399,13 @@ public class ReaderApp
    }
 
 
+   private File getConfigDir()
+   {
+      String homeDir = System.getProperty("user.home");
+      return new File(homeDir, ".wcomics");
+   }
+
+
    private void readConfig()
       throws ComicsException
    {
@@ -324,8 +427,7 @@ public class ReaderApp
       // forbetterorforworse = For Better or For Worse
       //
 
-      String homeDir = System.getProperty("user.home");
-      File configDir = new File(homeDir, ".wcomics");
+      File configDir = getConfigDir();
       debug("Loading config from '" + configDir.getAbsolutePath() + "'");
       if(configDir.exists() && !configDir.isDirectory())
       {
@@ -341,14 +443,20 @@ public class ReaderApp
             initializeReader(comicDir);
       }
 
-      readFavorites(configDir);
+      readFavorites();
    }
 
 
-   private void readFavorites(File configDir)
+   private File getIniFile()
+   {
+      return new File(getConfigDir(), "comics.ini");
+   }
+
+
+   private void readFavorites()
       throws ComicsException
    {
-      File iniFile = new File(configDir, "comics.ini");
+      File iniFile = getIniFile();
       if(!iniFile.exists() || iniFile.isDirectory())
       {
          warn("Missing comics.ini");
@@ -362,7 +470,7 @@ public class ReaderApp
       }
       catch(IOException ex)
       {
-         throw new ComicsException("Error reading ini file '" + configDir.getAbsolutePath() + "'", ex);
+         throw new ComicsException("Error reading ini file '" + iniFile.getAbsolutePath() + "'", ex);
       }
       _favorites = new HashSet<String>();
       Ini.Section favConfig = ini.get("favorites");
@@ -474,6 +582,39 @@ public class ReaderApp
          public void actionPerformed(ActionEvent e)
          {
             nextComic();
+         }
+      });
+
+      _addFavoriteButton.addActionListener(new ActionListener()
+      {
+         @Override
+         public void actionPerformed(ActionEvent e)
+         {
+            try
+            {
+               addToFavorites();
+            }
+            catch(ComicsException ex)
+            {
+               error(ex.getMessage());
+               ex.printStackTrace();
+            }
+         }
+      });
+      _removeFavoriteButton.addActionListener(new ActionListener()
+      {
+         @Override
+         public void actionPerformed(ActionEvent e)
+         {
+            try
+            {
+               removeFromFavorites();
+            }
+            catch(ComicsException ex)
+            {
+               error(ex.getMessage());
+               ex.printStackTrace();
+            }
          }
       });
 

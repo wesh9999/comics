@@ -4,6 +4,7 @@ import org.ini4j.Ini;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import java.io.*;
 import java.net.MalformedURLException;
@@ -12,16 +13,52 @@ import java.net.URLConnection;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GoComicsReader
    extends ComicsReader
 {
-   private static String GO_COMICS_URL = "http://www.gocomics.com/";
+   private static String GO_COMICS_URL = "http://www.gocomics.com";
+   private static String GO_COMICS_LIST_URL = GO_COMICS_URL + "/comics/a-to-z";
 
    private String _url = GO_COMICS_URL;
 
+
    public GoComicsReader()
    {
+   }
+
+
+   public static void generateIniFile()
+      throws ComicsException
+   {
+      try
+      {
+         System.out.println("# general reader properties.  class is required");
+         System.out.println("[reader]");
+         System.out.println("class = org.weshley.comics.GoComicsReader");
+         System.out.println("url = " + GO_COMICS_URL);
+         System.out.println("label = Go Comics");
+         System.out.println("");
+         System.out.println("# list of comics provided by this reader.  entries are ID = LABEL");
+         System.out.println("[comics]");
+
+         Document doc = Jsoup.connect(GO_COMICS_LIST_URL).get();
+         Elements divs = doc.select("div.media-body");
+         for(Element e : divs)
+         {
+            String label = e.select("h4.media-heading").first().ownText();
+            Element linkElem = e.parent().parent();
+            String id = linkElem.attributes().get("href").substring(1);
+            System.out.println(id + " = " + label);
+         }
+      }
+      catch(Exception ex)
+      {
+         throw new ComicsException("Error getting all comics from GoComics", ex);
+      }
+
    }
 
 
@@ -57,32 +94,22 @@ public class GoComicsReader
    private byte[] getImageDataInternal(String imageSrc)
       throws IOException
    {
+      // FIXME - remove debug statements?
       debug("Reading image data from " + imageSrc);
 
       URL url = new URL(imageSrc);
       URLConnection conn = url.openConnection();
-      debug("ContentType is '" + conn.getContentType() + "'");
+//      debug("ContentType is '" + conn.getContentType() + "'");
 // FIXME - hardcoded timeout? retry somehow?
       conn.setReadTimeout(60*1000);  // 60s timeout
       conn.connect();
 
-// FIXME - delete old code
-//      byte[] b = new byte[1];
-//      String tmpFile = "/home/whunter/tmp/test.gif";
-//      File f = new File(tmpFile);
-//      if(f.exists())
-//         f.delete();
-//      debug("Writing image to file " + tmpFile);
       ByteArrayOutputStream ostream = new ByteArrayOutputStream();
       DataInputStream di = new DataInputStream(conn.getInputStream());
-//      FileOutputStream fo = new FileOutputStream(tmpFile);
-//      while (-1 != di.read(b, 0, 1))
-//         fo.write(b, 0, 1);
       int b = -1;
       while(-1 != (b = di.read()))
          ostream.write(b);
       di.close();
-//      fo.close();
       return ostream.toByteArray();
    }
 
