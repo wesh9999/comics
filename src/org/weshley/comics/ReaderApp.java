@@ -18,17 +18,15 @@ import java.util.List;
 
 
 /* TODO:
+    - working on ArcamaxReader.  returning empty image data
+    - add all my go-comics favorites to ini file
+    - create full ini file for arcamax
+    - alpha sort comic sources after Favorites and All
+    - strip trailing slash from GO_COMICS_URL instead of adding it, like in Arcamax?
     - fetching image twice on startup?
     - calendar dropdown
     - add a message when adding/removing favorites
-    - add/remove favorite button not initially visible when unless the entire comic is visible.
-      probably fixed if i can figure out how to scale the image?
     - ability to search for a comic in the list
-    - scale image to fit into available space
-         - resize listener to rescale when window size changes
-            - don't get events when making window smaller, only larger.  something odd about how the control is configured?
-    - add to and remove from favorites button
-       - write favorites to $HOME/.wcomics/comics.ini when changed in UI
     - "downloading" progress indicator of some sort
     - test support for image types other than gif
     - what other strip servers are out there to pull from?
@@ -54,6 +52,7 @@ public class ReaderApp
    private JPanel _comicsButtonPanel;
    private JButton _addFavoriteButton;
    private JButton _removeFavoriteButton;
+   private JFrame _frame;
 
    private ImageIcon _originalImage = null;
    private Calendar _currentDate = Calendar.getInstance();
@@ -95,6 +94,8 @@ public class ReaderApp
       {
          if(args[0].equals("--find-go-comics"))
             GoComicsReader.generateIniFile();
+         else if(args[0].equals("--test"))
+            runTest();
          else if(args[0].equals("--help"))
             usage();
          else
@@ -107,13 +108,18 @@ public class ReaderApp
    }
 
 
+   private void runTest()
+      throws ComicsException
+   {
+      ComicsReader r = new ArcamaxReader();
+      byte[] data = r.getImageData("babyblues");
+   }
+
    private void launchReader()
       throws ComicsException
    {
       loadReaders();
       setUiProperties();
-      initializeListeners();
-      resetUiContent();
       launchUi();
    }
 
@@ -147,11 +153,13 @@ public class ReaderApp
 
    private void buildUi()
    {
-      JFrame frame = new JFrame("Weshley Comics Reader");
-      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-      frame.setContentPane(_topPanel);
-      frame.pack();
-      frame.setVisible(true);
+      _frame = new JFrame("Weshley Comics Reader");
+      _frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      _frame.setContentPane(_topPanel);
+      _frame.pack();
+      _frame.setVisible(true);
+      initializeListeners();
+      resetUiContent();
    }
 
 
@@ -219,7 +227,6 @@ public class ReaderApp
    private void updateSelectedComic()
    {
       Comic c = (Comic) _comicsList.getSelectedValue();
-//      debug("COMIC: " + c);
       if(null == c)
          _comicImage.setIcon(null);
       else
@@ -227,19 +234,7 @@ public class ReaderApp
          try
          {
             _originalImage = new ImageIcon(c.getImageData(_currentDate.getTime()));
-//            _comicImage.setIcon(_originalImage);
             rescaleImage();
-/*
-//            debug("LOADED IMAGE SIZE=" + image.getIconWidth() + "," + image.getIconHeight());
-//            debug("LABEL SIZE=" + _comicImage.getWidth() + "," + _comicImage.getHeight());
-            Rectangle imageArea = _comicImage.getVisibleRect();
-//            debug("LABEL SIZE=" + imageArea);
-            int w = (int) imageArea.getWidth();
-            int h = (int) imageArea.getHeight();
-            if((w != 0) && (h != 0))
-               image = scaleImage(image, w, h);
-            _comicImage.setIcon(image);
-*/
          }
          catch(ComicsException ex)
          {
@@ -253,40 +248,22 @@ public class ReaderApp
    // scale an image to a desired size, maintaining the original image's aspect ratio
    private ImageIcon scaleImage(ImageIcon image, int desiredWidth, int desiredHeight)
    {
-/*
-      int newWidth = image.getIconWidth();
-      int newHeight = image.getIconHeight();
-
-      if(image.getIconWidth() > desiredWidth)
+      float currentWidth = image.getIconWidth();
+      float currentHeight = image.getIconHeight();
+      float newWidth = currentWidth;
+      float newHeight = currentHeight;
+      if(currentWidth > currentHeight) // maximize width
       {
          newWidth = desiredWidth;
-         newHeight = (newWidth * image.getIconHeight()) / image.getIconWidth();
+         newHeight = (newWidth / currentWidth) * currentHeight;
       }
+      else // maximize height
+      {
+         newHeight = desiredHeight;
+         newWidth = (newHeight / currentHeight) * currentWidth;
+      }
+      return new ImageIcon(image.getImage().getScaledInstance((int) newWidth, (int) newHeight, Image.SCALE_DEFAULT));
 
-      if(newHeight > desiredHeight)
-      {
-         newHeight = desiredHeight;
-         newWidth = (image.getIconWidth() * newHeight) / image.getIconHeight();
-      }
-System.out.println("NEW SIZE=" + newWidth + ", " + newHeight);
-      return new ImageIcon(image.getImage().getScaledInstance(newWidth, newHeight, Image.SCALE_DEFAULT));
-*/
-      int currentWidth = image.getIconWidth();
-      int currentHeight = image.getIconHeight();
-      int newWidth = currentWidth;
-      int newHeight = currentHeight;
-      if(currentWidth > currentHeight) // scale width
-      {
-         newWidth = desiredWidth;
-         newHeight = (newWidth * currentHeight) / currentWidth;
-      }
-      else // scale height
-      {
-         newHeight = desiredHeight;
-         newWidth = (newHeight * currentWidth) / currentHeight;
-      }
-      System.out.println("NEW SIZE=" + newWidth + ", " + newHeight);
-      return new ImageIcon(image.getImage().getScaledInstance(newWidth, newHeight, Image.SCALE_DEFAULT));
    }
 
 
@@ -412,7 +389,6 @@ System.out.println("NEW SIZE=" + newWidth + ", " + newHeight);
    private void updateComicsList()
    {
       String group = (String) _groupCombo.getSelectedItem();
-//      debug("GROUP: " + group);
       DefaultListModel model = (DefaultListModel) _comicsList.getModel();
       model.clear();
       if(null == group)
@@ -698,13 +674,11 @@ System.out.println("NEW SIZE=" + newWidth + ", " + newHeight);
          }
       });
 
-
-      _comicImage.addComponentListener(new ComponentAdapter()
+      _frame.addComponentListener(new ComponentAdapter()
       {
          @Override
          public void componentResized(ComponentEvent e)
          {
-            System.out.println("resizing");
             rescaleImage();
          }
       });
@@ -713,20 +687,15 @@ System.out.println("NEW SIZE=" + newWidth + ", " + newHeight);
 
    private void rescaleImage()
    {
-//      ImageIcon image = (ImageIcon) _comicImage.getIcon();
       if(null == _originalImage)
          return;
-//            debug("LOADED IMAGE SIZE=" + image.getIconWidth() + "," + image.getIconHeight());
-//      debug("LABEL SIZE=" + _comicImage.getWidth() + "," + _comicImage.getHeight());
       Rectangle imageArea = _comicImage.getVisibleRect();
-      debug("LABEL SIZE=" + imageArea);
       int w = (int) imageArea.getWidth();
       int h = (int) imageArea.getHeight();
       ImageIcon  image = _originalImage;
       if((w != 0) && (h != 0))
          image = scaleImage(image, w, h);
       _comicImage.setIcon(image);
-//      _topPanel.revalidate();
    }
 
 }
