@@ -2,6 +2,8 @@ package org.weshley.comics;
 
 import org.ini4j.Ini;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,8 +58,24 @@ public abstract class ComicsReader
       throws ComicsException;
 
 
-   private void warn(String msg)
+   protected void warn(String msg)
    {
-      System.out.println("WARNING: " + msg);
+      System.out.println("WARNING <" + _label + ">: " + msg);
+   }
+
+
+   protected void debug(String msg)
+   {
+      System.out.println("DEBUG <" + _label + ">: " + msg);
+   }
+
+
+   // for testing
+   protected void writeImageFile(String filePath, byte[] data)
+      throws IOException
+   {
+      FileOutputStream fos = new FileOutputStream(filePath);
+      fos.write(data);
+      fos.close();
    }
 }

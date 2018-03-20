@@ -18,17 +18,14 @@ import java.util.List;
 
 
 /* TODO:
-    - working on ArcamaxReader.  returning empty image data
+    - working on ArcamaxReader
+        - how do i get a comic for a particular day
+        - query entire comic library and update the ini file
     - add all my go-comics favorites to ini file
-    - create full ini file for arcamax
-    - alpha sort comic sources after Favorites and All
-    - strip trailing slash from GO_COMICS_URL instead of adding it, like in Arcamax?
-    - fetching image twice on startup?
     - calendar dropdown
     - add a message when adding/removing favorites
     - ability to search for a comic in the list
-    - "downloading" progress indicator of some sort
-    - test support for image types other than gif
+    - "downloading" progress indicator of some sort.  also have a hardcoded timeout in the readers when fetching images.
     - what other strip servers are out there to pull from?
     - package comic reader config files with code?  only favorites should be unique per user
     - package jars with a launching script
@@ -52,6 +49,7 @@ public class ReaderApp
    private JPanel _comicsButtonPanel;
    private JButton _addFavoriteButton;
    private JButton _removeFavoriteButton;
+   private JButton _todayButton;
    private JFrame _frame;
 
    private ImageIcon _originalImage = null;
@@ -136,7 +134,8 @@ public class ReaderApp
       for(String s : names)
          _groupCombo.addItem(s);
 
-      _groupCombo.setSelectedIndex(0);
+      if(0 != _groupCombo.getSelectedIndex())
+         _groupCombo.setSelectedIndex(0);
    }
 
    private void launchUi()
@@ -168,8 +167,13 @@ public class ReaderApp
       List<String> groups = new ArrayList<String>();
       groups.add("Favorites");
       groups.add("All");
+
+      // alphabetically sort readers by label
+      Set<String> sort = new TreeSet<>();
       for(ComicsReader r : _readers)
-         groups.add(r.getLabel());
+         sort.add(r.getLabel());
+      for(String label : sort)
+         groups.add(label);
       return groups;
    }
 
@@ -213,6 +217,13 @@ public class ReaderApp
    private void nextDay()
    {
       _currentDate.add(Calendar.DAY_OF_MONTH, 1);
+      updateSelectedComic();
+   }
+
+
+   private void goToToday()
+   {
+      _currentDate = Calendar.getInstance();
       updateSelectedComic();
    }
 
@@ -270,6 +281,7 @@ public class ReaderApp
    private void updateUiControlState()
    {
       Comic c = (Comic) _comicsList.getSelectedValue();
+      Calendar today = Calendar.getInstance();
       if(null == c)
       {
          _comicLabel.setText("");
@@ -285,7 +297,6 @@ public class ReaderApp
       {
          _comicLabel.setText(c.getLabel());
          _comicImage.setText("");
-         Calendar today = Calendar.getInstance();
          _previousDayButton.setEnabled(true);
          _nextDayButton.setEnabled(compareDate(_currentDate, today) < 0);
          _previousComicButton.setEnabled(_comicsList.getSelectedIndex() > 0);
@@ -295,6 +306,7 @@ public class ReaderApp
       _dateLabel.setText(getCurrentDayFormatted());
       _addFavoriteButton.setEnabled(true);
       _removeFavoriteButton.setEnabled(true);
+      _todayButton.setEnabled(compareDate(_currentDate, today) != 0);
    }
 
 
@@ -421,7 +433,8 @@ public class ReaderApp
       for(Map.Entry<String,Comic> e : sortedComics.entrySet())
          model.addElement(e.getValue());
 
-      _comicsList.setSelectedIndex(0);
+      if(0 != _comicsList.getSelectedIndex())
+         _comicsList.setSelectedIndex(0);
    }
 
 
@@ -465,7 +478,6 @@ public class ReaderApp
       //
 
       File configDir = getConfigDir();
-      debug("Loading config from '" + configDir.getAbsolutePath() + "'");
       if(configDir.exists() && !configDir.isDirectory())
       {
          throw new ComicsException("Cannot overwrite regular file '"
@@ -586,6 +598,15 @@ public class ReaderApp
 
    private void initializeListeners()
    {
+      _todayButton.addActionListener(new ActionListener()
+      {
+         @Override
+         public void actionPerformed(ActionEvent e)
+         {
+            goToToday();
+         }
+      });
+
       _previousDayButton.addActionListener(new ActionListener()
       {
          @Override

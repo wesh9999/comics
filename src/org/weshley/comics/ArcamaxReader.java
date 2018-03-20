@@ -7,21 +7,20 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class ArcamaxReader
    extends ComicsReader
 {
-   private static String ARCAMAX_URL = "http://www.arcamax.com";
+   private static String ARCAMAX_URL = "https://www.arcamax.com";
 
    private String _url = ARCAMAX_URL;
+   private String _nextDate = null;
+   private String _previousDate = null;
+   private String _imageSrc = null;
 
 
    public ArcamaxReader()
@@ -84,9 +83,8 @@ public class ArcamaxReader
 //         String comicUri = comicName + "/" + dateFormat.format(dt);
 // FIXME - what is the arcamax date format?
          String comicUri = "/thefunnies/" + comicName;
-         String src = getImageSource(comicUri);
-System.out.println("+++src=[" + src + "]");
-         return getImageDataInternal(src);
+         parsePage(comicUri);
+         return getImageDataInternal(_imageSrc);
       }
       catch(Exception ex)
       {
@@ -98,16 +96,10 @@ System.out.println("+++src=[" + src + "]");
       throws IOException
    {
       URL url = new URL(_url + imageSrc);
-      // FIXME - remove debug statements?
-      debug("Reading image data from " + url);
-
       URLConnection conn = url.openConnection();
 // FIXME - hardcoded timeout? retry somehow?
       conn.setReadTimeout(60*1000);  // 60s timeout
       conn.connect();
-      debug("ContentType is '" + conn.getContentType() + "'");
-      debug("ContentEncoding is '" + conn.getContentEncoding() + "'");
-      debug("ContentLength is '" + conn.getContentLength() + "'");
 
       ByteArrayOutputStream ostream = new ByteArrayOutputStream();
       DataInputStream di = new DataInputStream(conn.getInputStream());
@@ -115,31 +107,47 @@ System.out.println("+++src=[" + src + "]");
       while(-1 != (b = di.read()))
          ostream.write(b);
       di.close();
-      byte[] data = ostream.toByteArray();
-System.out.println("DATA len = " + data.length);
-FileOutputStream fos = new FileOutputStream("/home/whunter/tmp/comic.gif");
-fos.write(data);
-fos.close();
-      return data;
+      return ostream.toByteArray();
    }
 
 
-   private String getImageSource(String comicUri)
+   private void parsePage(String comicUri)
       throws IOException
    {
+      _imageSrc = null;
       String url = _url + comicUri;
-      debug("Fetching web source from " + url);
       Document doc = Jsoup.connect(url).get();
-      Element picture = doc.select("img.the-comic").first();
-//      Element img = picture.getElementsByTag("img").first();
-//      return img.attributes().get("src");
-      return picture.attributes().get("src");
-   }
+      Element elem = doc.select("img.the-comic").first();
+      _imageSrc = elem.attributes().get("src");
 
-
-   private void debug(String msg)
-   {
-      System.out.println("DEBUG <GoComicsReader>: " + msg);
+      // arcamax doesn't seem to have a human readable date format, so
+      // pull previous and next date tags from the web page source
+      _nextDate = null;
+      _previousDate = null;
+      Elements elems = doc.select("a.prev");
+      if(!elems.isEmpty())
+      {
+         String href = elems.first().attributes().get("href");
+         if(null != href)
+         {
+            int idx = href.lastIndexOf("/");
+            if(-1 != idx)
+               _previousDate = href.substring(idx + 1);
+         }
+      }
+      elems = doc.select("a.next");
+      if(!elems.isEmpty())
+      {
+         String href = elems.first().attributes().get("href");
+         if(null != href)
+         {
+            int idx = href.lastIndexOf("/");
+            if(-1 != idx)
+               _nextDate = href.substring(idx + 1);
+         }
+      }
+      debug("prev=[" + _previousDate + "]");
+      debug("next=[" + _nextDate + "]");
    }
 
 }

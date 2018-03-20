@@ -7,14 +7,12 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class GoComicsReader
    extends ComicsReader
@@ -69,8 +67,8 @@ public class GoComicsReader
       _url = readerConfig.get("url");
       if(null == _url)
          _url = GO_COMICS_URL;
-      if(!_url.endsWith("/"))
-         _url = _url + "/";
+      if(_url.endsWith("/"))
+         _url = _url.substring(0, _url.length() - 1);
    }
 
 
@@ -94,12 +92,8 @@ public class GoComicsReader
    private byte[] getImageDataInternal(String imageSrc)
       throws IOException
    {
-      // FIXME - remove debug statements?
-      debug("Reading image data from " + imageSrc);
-
       URL url = new URL(imageSrc);
       URLConnection conn = url.openConnection();
-//      debug("ContentType is '" + conn.getContentType() + "'");
 // FIXME - hardcoded timeout? retry somehow?
       conn.setReadTimeout(60*1000);  // 60s timeout
       conn.connect();
@@ -117,18 +111,11 @@ public class GoComicsReader
    private String getImageSource(String comicUri)
       throws IOException
    {
-      String url = _url + comicUri;
-      debug("Fetching web source from " + url);
+      String url = _url + "/" + comicUri;
       Document doc = Jsoup.connect(url).get();
       Element picture = doc.select("picture.item-comic-image").first();
       Element img = picture.getElementsByTag("img").first();
       return img.attributes().get("src");
-   }
-
-
-   private void debug(String msg)
-   {
-      System.out.println("DEBUG <GoComicsReader>: " + msg);
    }
 
 }
