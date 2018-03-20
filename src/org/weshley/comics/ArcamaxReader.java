@@ -9,14 +9,13 @@ import org.jsoup.select.Elements;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.Calendar;
-import java.util.Date;
 
 
 public class ArcamaxReader
    extends ComicsReader
 {
    private static String ARCAMAX_URL = "https://www.arcamax.com";
+   private static String ARCAMAX_LIST_URL = ARCAMAX_URL + "/comics";
 
    private String _url = ARCAMAX_URL;
    private String _nextDate = null;
@@ -28,8 +27,7 @@ public class ArcamaxReader
    {
    }
 
-// FIXME - fetch list of comics from this source and create ini file?
-/*
+
    public static void generateIniFile()
       throws ComicsException
    {
@@ -37,30 +35,34 @@ public class ArcamaxReader
       {
          System.out.println("# general reader properties.  class is required");
          System.out.println("[reader]");
-         System.out.println("class = org.weshley.comics.GoComicsReader");
-         System.out.println("url = " + GO_COMICS_URL);
-         System.out.println("label = Go Comics");
+         System.out.println("class = org.weshley.comics.ArcamaxReader");
+         System.out.println("url = " + ARCAMAX_URL);
+         System.out.println("label = ArcaMax");
          System.out.println("");
          System.out.println("# list of comics provided by this reader.  entries are ID = LABEL");
          System.out.println("[comics]");
 
-         Document doc = Jsoup.connect(GO_COMICS_LIST_URL).get();
-         Elements divs = doc.select("div.media-body");
-         for(Element e : divs)
+         Document doc = Jsoup.connect(ARCAMAX_LIST_URL).get();
+         Elements links = doc.select("a");
+         for(Element e : links)
          {
-            String label = e.select("h4.media-heading").first().ownText();
-            Element linkElem = e.parent().parent();
-            String id = linkElem.attributes().get("href").substring(1);
-            System.out.println(id + " = " + label);
+            String code = e.attributes().get("data-code");
+            if((code != null) && !code.isEmpty())
+            {
+               String label = e.ownText();
+               String id = e.attributes().get("href");
+               id = id.substring(0, id.length() - 1);
+               System.out.println(id + " = " + label);
+            }
          }
       }
       catch(Exception ex)
       {
-         throw new ComicsException("Error getting all comics from GoComics", ex);
+         throw new ComicsException("Error getting all comics from ArcaMax", ex);
       }
 
    }
-*/
+
 
    public void initializeFromConfig(Ini ini)
    {
@@ -117,20 +119,15 @@ public class ArcamaxReader
 
 
    @Override
-   public byte[] getImageData(String comicName, Object date)
+   public byte[] getImageData(String comicId, Object date)
       throws ComicsException
    {
-Thread.dumpStack();
       try
       {
-//         DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-//         String comicUri = comicName + "/" + dateFormat.format(dt);
-// FIXME - what is the arcamax date format?
          String dateId = "";
          if(null != date)
             dateId = "/" + date;
-         String comicUri = "/thefunnies/" + comicName + dateId;
-         debug("comicUri = [" + comicUri + "]");
+         String comicUri = comicId + dateId;
          parsePage(comicUri);
          return getImageDataInternal(_imageSrc);
       }
@@ -194,8 +191,6 @@ Thread.dumpStack();
                _nextDate = href.substring(idx + 1);
          }
       }
-      debug("prev=[" + _previousDate + "]");
-      debug("next=[" + _nextDate + "]");
    }
 
 }

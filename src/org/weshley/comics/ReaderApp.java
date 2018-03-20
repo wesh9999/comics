@@ -18,9 +18,9 @@ import java.util.List;
 
 
 /* TODO:
-    - working on ArcamaxReader
-        - query entire comic library and update the ini file
-    - add all my go-comics favorites to ini file
+    - keyboard controls to move through comics, days, favorites, etc
+    - jpgs won't load?  try Bob Gorrell in Arcamax
+    - image magnification is a bit fuzzy.  better method or get higher res images from servers?
     - calendar dropdown -- not supported by all readers (like arcamax)
     - add a message when adding/removing favorites
     - ability to search for a comic in the list
@@ -97,6 +97,8 @@ public class ReaderApp
       {
          if(args[0].equals("--find-go-comics"))
             GoComicsReader.generateIniFile();
+         if(args[0].equals("--find-arcamax-comics"))
+            ArcamaxReader.generateIniFile();
          else if(args[0].equals("--test"))
             runTest();
          else if(args[0].equals("--help"))
@@ -187,25 +189,17 @@ public class ReaderApp
       readConfig();
       if(_readers.isEmpty())
          warn("No comic readers configured");
-
-/*
-// FIXME - remove debugging code
-
-      for(ComicsReader reader : _readers)
-      {
-         System.out.println("------------ " + reader.getLabel() + " ------------");
-         Map<String,Comic> comics = reader.getComics();
-         for(Comic c : comics.values())
-            System.out.println("   " + c.getLabel() + " (" + c.getId() + ") from '" + c.getReader().getLabel() + "'");
-      }
- */
    }
+
 
    private void nextComic()
    {
       int current = _comicsList.getSelectedIndex();
       if(current < (_comicsList.getModel().getSize() - 1))
+      {
          _comicsList.setSelectedIndex(current + 1);
+         _comicsList.ensureIndexIsVisible(current + 1);
+      }
    }
 
 
@@ -213,7 +207,10 @@ public class ReaderApp
    {
       int current = _comicsList.getSelectedIndex();
       if(current > 0)
+      {
          _comicsList.setSelectedIndex(current - 1);
+         _comicsList.ensureIndexIsVisible(current - 1);
+      }
    }
 
 
@@ -337,8 +334,13 @@ public class ReaderApp
          _todayButton.setEnabled(!r.isToday(_currentComicDate));
       }
       _dateLabel.setText(getCurrentDayFormatted());
-      _addFavoriteButton.setEnabled(true);
-      _removeFavoriteButton.setEnabled(true);
+
+      String group = (String) _groupCombo.getSelectedItem();
+      boolean isFavorite =
+         ((null != group) && group.equals("Favorites"))
+            || ((null != c) && _favorites.contains(c.getId()));
+      _addFavoriteButton.setEnabled(!isFavorite);
+      _removeFavoriteButton.setEnabled(isFavorite);
    }
 
 
@@ -376,9 +378,11 @@ public class ReaderApp
             iniFile.delete();
          FileWriter writer = new FileWriter(iniFile);
          writer.write("[favorites]\n");
-         String group = _groupCombo.getSelectedItem().toString();
          for(String id : _favorites)
+         {
+            String group = findComicGroup(id);
             writer.write(id + " = " + group + "\n");
+         }
          writer.write("\n");
          writer.flush();
          writer.close();
@@ -387,46 +391,23 @@ public class ReaderApp
       {
          throw new ComicsException("Error writing ini file: " + ex.getMessage(), ex);
       }
-
    }
 
+
+   private String findComicGroup(String id)
+   {
+      for(ComicsReader r : _readers)
+      {
+         if(r.hasComic(id))
+            return r.getLabel();
+      }
+      return "Unknown";
+   }
 
    private String getCurrentDayFormatted()
    {
       DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
       return dateFormat.format(_currentDate.getTime());
-   }
-
-
-   // return -1 if c1 is a day before c2, 1 if c1 is a day after c2,
-   // and 0 if days are the same.  ignore time
-   private int compareDate(Calendar c1, Calendar c2)
-   {
-      int y1 = c1.get(Calendar.YEAR);
-      int y2 = c2.get(Calendar.YEAR);
-      int m1 = c1.get(Calendar.MONTH);
-      int m2 = c2.get(Calendar.MONTH);
-      int d1 = c1.get(Calendar.DAY_OF_MONTH);
-      int d2 = c2.get(Calendar.DAY_OF_MONTH);
-
-      if(y1 < y2)
-         return -1;
-      else if(y1 > y2)
-         return 1;
-
-      // same year
-      if(m1 < m2)
-         return -1;
-      else if(m1 > m2)
-         return 1;
-
-      // same month
-      if(d1 < d2)
-         return -1;
-      else if(d1 > d2)
-         return 1;
-
-      return 0;
    }
 
 

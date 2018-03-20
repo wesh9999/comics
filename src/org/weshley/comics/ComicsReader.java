@@ -16,6 +16,12 @@ public abstract class ComicsReader
       // keyed by unique comic ID
 
 
+   public boolean hasComic(String id)
+   {
+      return _comics.containsKey(id);
+   }
+
+
    public void initializeFromConfig(Ini ini)
    {
       Ini.Section readerConfig = ini.get("reader");

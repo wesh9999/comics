@@ -152,7 +152,6 @@ public class GoComicsReader
          Date dt = cal.getTime();
          DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
          String comicUri = comicName + "/" + dateFormat.format(dt);
-         debug("comicUri = [" + comicUri + "]");
          String src = getImageSource(comicUri);
          return getImageDataInternal(src);
       }
