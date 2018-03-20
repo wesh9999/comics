@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 
@@ -73,13 +74,85 @@ public class GoComicsReader
 
 
    @Override
-   public byte[] getImageData(String comicName, Date dt)
+   public Object nextDate(Object currentDay)
+   {
+      Calendar cur = Calendar.getInstance();
+      if((null != currentDay) && (currentDay instanceof Calendar))
+         cur = (Calendar) currentDay;
+      cur.add(Calendar.DAY_OF_MONTH, 1);
+      return cur;
+   }
+
+
+   @Override
+   public Object previousDate(Object currentDay)
+   {
+      Calendar cur = Calendar.getInstance();
+      if((null != currentDay) && (currentDay instanceof Calendar))
+         cur = (Calendar) currentDay;
+      cur.add(Calendar.DAY_OF_MONTH, -1);
+      return cur;
+   }
+
+
+   @Override
+   public Object setDate(Object currentDay)
+   {
+      if((null != currentDay) && (currentDay instanceof Calendar))
+         return currentDay;
+      return Calendar.getInstance();
+   }
+
+
+   @Override
+   public boolean hasNextDate(Object currentDay)
+   {
+      if((null == currentDay) || !(currentDay instanceof Calendar))
+         return false; // assuming this means "today"
+      Calendar cur = (Calendar) currentDay;
+      Calendar today = Calendar.getInstance();
+      int c = compareDate(cur, today);
+      return (c < 0);
+   }
+
+
+   @Override
+   public boolean hasPreviousDate(Object currentDay)
+   {
+      if((null == currentDay) || !(currentDay instanceof Calendar))
+         return true; // assuming this means "today"
+      Calendar cur = (Calendar) currentDay;
+      Calendar today = Calendar.getInstance();
+      int c = compareDate(cur, today);
+      return (c <= 0);
+   }
+
+
+   @Override
+   public boolean isToday(Object currentDay)
+   {
+      if((null == currentDay) || !(currentDay instanceof Calendar))
+         return true; // assuming this means "today"
+      Calendar cur = (Calendar) currentDay;
+      Calendar today = Calendar.getInstance();
+      int c = compareDate(cur, today);
+      return (c == 0);
+   }
+
+
+   @Override
+   public byte[] getImageData(String comicName, Object date)
       throws ComicsException
    {
       try
       {
+         Calendar cal = Calendar.getInstance();
+         if((null != date) && (date instanceof Calendar))
+            cal = (Calendar) date;
+         Date dt = cal.getTime();
          DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
          String comicUri = comicName + "/" + dateFormat.format(dt);
+         debug("comicUri = [" + comicUri + "]");
          String src = getImageSource(comicUri);
          return getImageDataInternal(src);
       }
@@ -117,5 +190,38 @@ public class GoComicsReader
       Element img = picture.getElementsByTag("img").first();
       return img.attributes().get("src");
    }
+
+
+   // return -1 if c1 is a day before c2, 1 if c1 is a day after c2,
+   // and 0 if days are the same.  ignore time
+   private int compareDate(Calendar c1, Calendar c2)
+   {
+      int y1 = c1.get(Calendar.YEAR);
+      int y2 = c2.get(Calendar.YEAR);
+      int m1 = c1.get(Calendar.MONTH);
+      int m2 = c2.get(Calendar.MONTH);
+      int d1 = c1.get(Calendar.DAY_OF_MONTH);
+      int d2 = c2.get(Calendar.DAY_OF_MONTH);
+
+      if(y1 < y2)
+         return -1;
+      else if(y1 > y2)
+         return 1;
+
+      // same year
+      if(m1 < m2)
+         return -1;
+      else if(m1 > m2)
+         return 1;
+
+      // same month
+      if(d1 < d2)
+         return -1;
+      else if(d1 > d2)
+         return 1;
+
+      return 0;
+   }
+
 
 }

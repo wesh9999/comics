@@ -50,13 +50,19 @@ public abstract class ComicsReader
    public byte[] getImageData(String comicName)
       throws ComicsException
    {
-      return getImageData(comicName, new Date());
+      return getImageData(comicName, null);
    }
 
 
-   public abstract byte[] getImageData(String comicName, Date dt)
+   public abstract byte[] getImageData(String comicName, Object date)
       throws ComicsException;
 
+   public abstract Object nextDate(Object currentDay);
+   public abstract Object previousDate(Object currentDay);
+   public abstract Object setDate(Object date);
+   public abstract boolean hasNextDate(Object currentDay);
+   public abstract boolean hasPreviousDate(Object currentDay);
+   public abstract boolean isToday(Object currentDay);
 
    protected void warn(String msg)
    {

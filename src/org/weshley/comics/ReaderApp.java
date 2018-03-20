@@ -19,10 +19,9 @@ import java.util.List;
 
 /* TODO:
     - working on ArcamaxReader
-        - how do i get a comic for a particular day
         - query entire comic library and update the ini file
     - add all my go-comics favorites to ini file
-    - calendar dropdown
+    - calendar dropdown -- not supported by all readers (like arcamax)
     - add a message when adding/removing favorites
     - ability to search for a comic in the list
     - "downloading" progress indicator of some sort.  also have a hardcoded timeout in the readers when fetching images.
@@ -54,6 +53,12 @@ public class ReaderApp
 
    private ImageIcon _originalImage = null;
    private Calendar _currentDate = Calendar.getInstance();
+   private Object _currentComicDate = null;
+      // some readers don't support reasonable navigation to
+      // arbitrary dates (like arcamax).  this is an generic
+      // object provided by the reader that we can use to navigate
+      // to previous and next day's comics.  null means "today".
+   private ComicsReader _currentReader = null;
    private List<ComicsReader> _readers = new ArrayList<>();
    private Set<String> _favorites = new HashSet<>();
       // stores comic ids
@@ -109,8 +114,6 @@ public class ReaderApp
    private void runTest()
       throws ComicsException
    {
-      ComicsReader r = new ArcamaxReader();
-      byte[] data = r.getImageData("babyblues");
    }
 
    private void launchReader()
@@ -214,9 +217,18 @@ public class ReaderApp
    }
 
 
-   private void nextDay()
+   private void nextDate()
    {
       _currentDate.add(Calendar.DAY_OF_MONTH, 1);
+      _currentComicDate = getCurrentReader().nextDate(_currentComicDate);
+      updateSelectedComic();
+   }
+
+
+   private void previousDate()
+   {
+      _currentDate.add(Calendar.DAY_OF_MONTH, -1);
+      _currentComicDate = getCurrentReader().previousDate(_currentComicDate);
       updateSelectedComic();
    }
 
@@ -224,14 +236,18 @@ public class ReaderApp
    private void goToToday()
    {
       _currentDate = Calendar.getInstance();
+      _currentComicDate =  null;
       updateSelectedComic();
    }
 
 
-   private void previousDay()
+   private ComicsReader getCurrentReader()
    {
-      _currentDate.add(Calendar.DAY_OF_MONTH, -1);
-      updateSelectedComic();
+      Comic c = (Comic) _comicsList.getSelectedValue();
+      if(null == c)
+         return null;
+      else
+         return c.getReader();
    }
 
 
@@ -239,12 +255,24 @@ public class ReaderApp
    {
       Comic c = (Comic) _comicsList.getSelectedValue();
       if(null == c)
+      {
          _comicImage.setIcon(null);
+         _currentComicDate = null;
+      }
       else
       {
+         // since some readers can't navigate to a random date, might have to
+         // reset back to today if we switch readers
+         if(_currentReader != c.getReader())
+         {
+            _currentReader = c.getReader();
+            _currentComicDate = _currentReader.setDate(_currentComicDate);
+         }
+
          try
          {
-            _originalImage = new ImageIcon(c.getImageData(_currentDate.getTime()));
+//            _originalImage = new ImageIcon(c.getImageData(_currentDate.getTime()));
+            _originalImage = new ImageIcon(c.getImageData(_currentComicDate));
             rescaleImage();
          }
          catch(ComicsException ex)
@@ -281,13 +309,10 @@ public class ReaderApp
    private void updateUiControlState()
    {
       Comic c = (Comic) _comicsList.getSelectedValue();
-      Calendar today = Calendar.getInstance();
       if(null == c)
       {
          _comicLabel.setText("");
          _comicImage.setText("No comic selected");
-         _previousDayButton.setEnabled(false);
-         _nextDayButton.setEnabled(false);
          _previousComicButton.setEnabled(false);
          _nextComicButton.setEnabled(false);
          _addFavoriteButton.setEnabled(false);
@@ -297,16 +322,23 @@ public class ReaderApp
       {
          _comicLabel.setText(c.getLabel());
          _comicImage.setText("");
-         _previousDayButton.setEnabled(true);
-         _nextDayButton.setEnabled(compareDate(_currentDate, today) < 0);
          _previousComicButton.setEnabled(_comicsList.getSelectedIndex() > 0);
          _nextComicButton.setEnabled(
             _comicsList.getSelectedIndex() < (_comicsList.getModel().getSize() - 1));
       }
+      _previousDayButton.setEnabled(false);
+      _nextDayButton.setEnabled(false);
+      _todayButton.setEnabled(false);
+      ComicsReader r = getCurrentReader();
+      if(null != r)
+      {
+         _nextDayButton.setEnabled(r.hasNextDate(_currentComicDate));
+         _previousDayButton.setEnabled(r.hasPreviousDate(_currentComicDate));
+         _todayButton.setEnabled(!r.isToday(_currentComicDate));
+      }
       _dateLabel.setText(getCurrentDayFormatted());
       _addFavoriteButton.setEnabled(true);
       _removeFavoriteButton.setEnabled(true);
-      _todayButton.setEnabled(compareDate(_currentDate, today) != 0);
    }
 
 
@@ -612,7 +644,7 @@ public class ReaderApp
          @Override
          public void actionPerformed(ActionEvent e)
          {
-            previousDay();
+            previousDate();
          }
       });
 
@@ -621,7 +653,7 @@ public class ReaderApp
          @Override
          public void actionPerformed(ActionEvent e)
          {
-            nextDay();
+            nextDate();
          }
       });
 

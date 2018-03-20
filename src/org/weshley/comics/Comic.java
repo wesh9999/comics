@@ -35,9 +35,9 @@ public class Comic
       return _label;
    }
 
-   public byte[] getImageData(Date dt)
+   public byte[] getImageData(Object date)
       throws ComicsException
    {
-      return getReader().getImageData(_id, dt);
+      return getReader().getImageData(_id, date);
    }
 }

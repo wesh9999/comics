@@ -9,6 +9,7 @@ import org.jsoup.select.Elements;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Calendar;
 import java.util.Date;
 
 
@@ -74,15 +75,62 @@ public class ArcamaxReader
 
 
    @Override
-   public byte[] getImageData(String comicName, Date dt)
+   public Object nextDate(Object currentDay)
+   {
+      return _nextDate;
+   }
+
+
+   @Override
+   public Object previousDate(Object currentDay)
+   {
+      return _previousDate;
+   }
+
+
+   @Override
+   public Object setDate(Object currentDay)
+   {
+      // doesn't support random date navigation
+      return null;
+   }
+
+   @Override
+   public boolean hasNextDate(Object currentDay)
+   {
+      return null != _nextDate;
+   }
+
+
+   @Override
+   public boolean hasPreviousDate(Object currentDay)
+   {
+      return null != _previousDate;
+   }
+
+
+   @Override
+   public boolean isToday(Object currentDay)
+   {
+      return null == currentDay;
+   }
+
+
+   @Override
+   public byte[] getImageData(String comicName, Object date)
       throws ComicsException
    {
+Thread.dumpStack();
       try
       {
 //         DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
 //         String comicUri = comicName + "/" + dateFormat.format(dt);
 // FIXME - what is the arcamax date format?
-         String comicUri = "/thefunnies/" + comicName;
+         String dateId = "";
+         if(null != date)
+            dateId = "/" + date;
+         String comicUri = "/thefunnies/" + comicName + dateId;
+         debug("comicUri = [" + comicUri + "]");
          parsePage(comicUri);
          return getImageDataInternal(_imageSrc);
       }
