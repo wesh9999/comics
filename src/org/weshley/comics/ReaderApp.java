@@ -165,7 +165,11 @@ public class ReaderApp
       _frame.setVisible(true);
       initializeGlassPane();
       initializeListeners();
-      resetUiContent();
+      SwingUtilities.invokeLater(new Runnable() { public void run()
+      {
+         resetUiContent();
+         _frame.setSize(new Dimension(900, 600));
+      }});
    }
 
 
