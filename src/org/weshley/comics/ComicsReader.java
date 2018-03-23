@@ -53,6 +53,12 @@ public abstract class ComicsReader
    }
 
 
+   public Comic getComic(String id)
+   {
+      return _comics.get(id);
+   }
+
+
    public byte[] getImageData(String comicName)
       throws ComicsException
    {

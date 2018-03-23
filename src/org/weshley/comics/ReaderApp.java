@@ -6,10 +6,7 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
+import java.awt.event.*;
 import java.io.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -18,14 +15,20 @@ import java.util.List;
 
 
 /* TODO:
-    - keyboard controls to move through comics, days, favorites, etc
     - jpgs won't load?  try Bob Gorrell in Arcamax
-    - image magnification is a bit fuzzy.  better method or get higher res images from servers?
     - calendar dropdown -- not supported by all readers (like arcamax)
     - add a message when adding/removing favorites
+        - tried adding showGlassMessage, but not working.  partially worked when
+          i added it around fetching comic image, but took too long to show.
     - ability to search for a comic in the list
-    - "downloading" progress indicator of some sort.  also have a hardcoded timeout in the readers when fetching images.
+    - do something about hardcoded timeout in the readers when fetching images.
     - what other strip servers are out there to pull from?
+         - http://comics.azcentral.com/
+               - http://comics.azcentral.com/slideshow?&feature_id=Baby_Blues&feature_date=2018-03-20
+         - https://www.washingtonpost.com/entertainment/comics/?utm_term=.61648cc228fa
+               - http://wpcomics.washingtonpost.com/client/wpc/ad/2018/03/19/
+         - http://comicskingdom.com/comics
+               - https://comicskingdom.com/mother-goose-grimm/2018-03-21
     - package comic reader config files with code?  only favorites should be unique per user
     - package jars with a launching script
  */
@@ -50,6 +53,7 @@ public class ReaderApp
    private JButton _removeFavoriteButton;
    private JButton _todayButton;
    private JFrame _frame;
+   private JLabel _glassMessage;
 
    private ImageIcon _originalImage = null;
    private Calendar _currentDate = Calendar.getInstance();
@@ -60,10 +64,7 @@ public class ReaderApp
       // to previous and next day's comics.  null means "today".
    private ComicsReader _currentReader = null;
    private List<ComicsReader> _readers = new ArrayList<>();
-   private Set<String> _favorites = new HashSet<>();
-      // stores comic ids
-   private Map<String,Comic> _allComics = new HashMap<>();
-      // maps comic ids to comic objects
+   private Map<String,Comic> _favorites = new HashMap<>();
 
 
    public static void main(String[] args)
@@ -162,10 +163,29 @@ public class ReaderApp
       _frame.setContentPane(_topPanel);
       _frame.pack();
       _frame.setVisible(true);
+      initializeGlassPane();
       initializeListeners();
       resetUiContent();
    }
 
+
+   private void initializeGlassPane()
+   {
+      JComponent glass = (JComponent) _frame.getGlassPane();
+      glass.setLayout(new BorderLayout());
+      _glassMessage = new JLabel("test message", JLabel.CENTER);
+      _glassMessage.setOpaque(true);
+      _glassMessage.setBackground(makeTransparent(Color.white, 220));
+      _glassMessage.setFont(_glassMessage.getFont().deriveFont(20.0f));
+      glass.add(_glassMessage, BorderLayout.CENTER);
+//      glass.setVisible(true);
+   }
+
+
+   private Color makeTransparent(Color c, int alpha)
+   {
+      return new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha);
+   }
 
    private List<String> getComicGroupNames()
    {
@@ -250,6 +270,8 @@ public class ReaderApp
 
    private void updateSelectedComic()
    {
+      Cursor oldCursor = _frame.getCursor();
+      _frame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
       Comic c = (Comic) _comicsList.getSelectedValue();
       if(null == c)
       {
@@ -268,17 +290,43 @@ public class ReaderApp
 
          try
          {
-//            _originalImage = new ImageIcon(c.getImageData(_currentDate.getTime()));
             _originalImage = new ImageIcon(c.getImageData(_currentComicDate));
             rescaleImage();
-         }
-         catch(ComicsException ex)
+         } catch(ComicsException ex)
          {
             ex.printStackTrace();
             error(ex.getMessage());
          }
       }
       updateUiControlState();
+      _frame.setCursor(oldCursor);
+   }
+
+
+   private void clearGlassMessage()
+   {
+      SwingUtilities.invokeLater(new Runnable()
+      {
+         public void run()
+         {
+            _glassMessage.setText("");
+            _frame.getGlassPane().setVisible(false);
+         }
+      });
+   }
+
+
+   private void showGlassMessage(String msg)
+   {
+      SwingUtilities.invokeLater(new Runnable()
+      {
+         public void run()
+         {
+            _glassMessage.setText(msg);
+            _frame.getGlassPane().setVisible(true);
+            _frame.validate();
+         }
+      });
    }
 
    // scale an image to a desired size, maintaining the original image's aspect ratio
@@ -298,7 +346,8 @@ public class ReaderApp
          newHeight = desiredHeight;
          newWidth = (newHeight / currentHeight) * currentWidth;
       }
-      return new ImageIcon(image.getImage().getScaledInstance((int) newWidth, (int) newHeight, Image.SCALE_DEFAULT));
+      return new ImageIcon(image.getImage().getScaledInstance(
+         (int) newWidth, (int) newHeight, Image.SCALE_SMOOTH));
 
    }
 
@@ -338,7 +387,7 @@ public class ReaderApp
       String group = (String) _groupCombo.getSelectedItem();
       boolean isFavorite =
          ((null != group) && group.equals("Favorites"))
-            || ((null != c) && _favorites.contains(c.getId()));
+            || ((null != c) && _favorites.containsKey(c.getId()));
       _addFavoriteButton.setEnabled(!isFavorite);
       _removeFavoriteButton.setEnabled(isFavorite);
    }
@@ -350,8 +399,13 @@ public class ReaderApp
       Comic c = (Comic) _comicsList.getSelectedValue();
       if(null != c)
       {
-         _favorites.add(c.getId());
+         _favorites.put(c.getId(), c);
          writeFavoritesFile();
+         _addFavoriteButton.setEnabled(false);
+         _removeFavoriteButton.setEnabled(true);
+//         showGlassMessage("Added '" + c.getLabel() + "' to favorites");
+//         try { Thread.sleep(3000); } catch(InterruptedException ignored) { }
+//         clearGlassMessage();
       }
    }
 
@@ -364,6 +418,8 @@ public class ReaderApp
       {
          _favorites.remove(c.getId());
          writeFavoritesFile();
+         _addFavoriteButton.setEnabled(true);
+         _removeFavoriteButton.setEnabled(false);
       }
    }
 
@@ -378,10 +434,10 @@ public class ReaderApp
             iniFile.delete();
          FileWriter writer = new FileWriter(iniFile);
          writer.write("[favorites]\n");
-         for(String id : _favorites)
+         for(Comic c : _favorites.values())
          {
-            String group = findComicGroup(id);
-            writer.write(id + " = " + group + "\n");
+            String group = c.getReader().getLabel();
+            writer.write(c.getId() + " = " + group + "\n");
          }
          writer.write("\n");
          writer.flush();
@@ -423,21 +479,21 @@ public class ReaderApp
       Map<String,Comic> sortedComics = new TreeMap<>();
       if(group.equalsIgnoreCase("favorites"))
       {
-         for(String id : _favorites)
-         {
-            Comic c = _allComics.get(id);
+         for(Comic c : _favorites.values())
             sortedComics.put(c.getLabel(), c);
-         }
       }
       else if(group.equalsIgnoreCase("all"))
       {
-         for(Comic c : _allComics.values())
-            sortedComics.put(c.getLabel(), c);
+         for(ComicsReader r : _readers)
+         {
+            for(Comic c : r.getComics().values())
+               sortedComics.put(c.getLabel(), c);
+         }
       }
       else
       {
          ComicsReader r = getReaderFromLabel(group);
-         for(Comic c : _allComics.values())
+         for(Comic c : r.getComics().values())
          {
             if(c.getReader() == r)
                sortedComics.put(c.getLabel(), c);
@@ -534,16 +590,26 @@ public class ReaderApp
       {
          throw new ComicsException("Error reading ini file '" + iniFile.getAbsolutePath() + "'", ex);
       }
-      _favorites = new HashSet<String>();
+      _favorites = new HashMap<String,Comic>();
       Ini.Section favConfig = ini.get("favorites");
       if(null != favConfig)
       {
          for(String id : favConfig.keySet())
          {
-            if(_allComics.containsKey(id))
-               _favorites.add(id);
+            String readerLabel = favConfig.get(id);
+            ComicsReader r = getReaderFromLabel(readerLabel);
+            if(null == r)
+            {
+               warn("Could not find reader '" + readerLabel + "' for favorite '" + id + "'");
+            }
             else
-               warn("Favorite '" + id + "' not registered with any reader");
+            {
+               Comic c = r.getComic(id);
+               if(null == c)
+                  warn("Favorite '" + id + "' not found in reader '" + readerLabel + "'");
+               else
+                  _favorites.put(id, c);
+            }
          }
       }
    }
@@ -572,7 +638,6 @@ public class ReaderApp
       ComicsReader reader = instantiateReader(readerClass);
       reader.initializeFromConfig(ini);
       _readers.add(reader);
-      _allComics.putAll(reader.getComics());
    }
 
 
@@ -716,6 +781,50 @@ public class ReaderApp
             rescaleImage();
          }
       });
+
+      JComponent pane = (JComponent) _frame.getContentPane();
+      InputMap inputs = pane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+      inputs.put(KeyStroke.getKeyStroke("control N"), "next-comic");
+      inputs.put(KeyStroke.getKeyStroke("control P"), "previous-comic");
+      inputs.put(KeyStroke.getKeyStroke("control F"), "next-date");
+      inputs.put(KeyStroke.getKeyStroke("control B"), "previous-date");
+      ActionMap actions = pane.getActionMap();
+      actions.put(
+         "next-comic",
+         new AbstractAction()
+         {
+            public void actionPerformed(ActionEvent e)
+            {
+               nextComic();
+            }
+         });
+      actions.put(
+         "previous-comic",
+         new AbstractAction()
+         {
+            public void actionPerformed(ActionEvent e)
+            {
+               previousComic();
+            }
+         });
+      actions.put(
+         "next-date",
+         new AbstractAction()
+         {
+            public void actionPerformed(ActionEvent e)
+            {
+               nextDate();
+            }
+         });
+      actions.put(
+         "previous-date",
+         new AbstractAction()
+         {
+            public void actionPerformed(ActionEvent e)
+            {
+               previousDate();
+            }
+         });
    }
 
 
