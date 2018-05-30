@@ -16,6 +16,7 @@ import java.util.List;
 
 /* TODO:
     - jpgs won't load?  try Bob Gorrell in Arcamax
+    - add zoom in/out/reset
     - calendar dropdown -- not supported by all readers (like arcamax)
     - add a message when adding/removing favorites
         - tried adding showGlassMessage, but not working.  partially worked when
@@ -31,6 +32,10 @@ import java.util.List;
                - https://comicskingdom.com/mother-goose-grimm/2018-03-21
     - package comic reader config files with code?  only favorites should be unique per user
     - package jars with a launching script
+    - arcamax doesn't support navigation to arbitrary dates, so if you go back a day or
+      two with another reader, then navigate to next comic that is from arcamax,
+      the reader will fetch today's comic, which is a bit confusing.  don't know a better
+      way to deal with this....
  */
 
 public class ReaderApp
@@ -290,11 +295,19 @@ public class ReaderApp
          {
             _currentReader = c.getReader();
             _currentComicDate = _currentReader.setDate(_currentComicDate);
+            if(null == _currentComicDate)
+               _currentDate = Calendar.getInstance();
+                  // new reader doesn't support random date navigation, so reset
+                  // to today
          }
 
          try
          {
-            _originalImage = new ImageIcon(c.getImageData(_currentComicDate));
+            byte[] data = c.getImageData(_currentComicDate);
+            if(null == data)
+               _originalImage = null;
+            else
+               _originalImage = new ImageIcon(data);
             rescaleImage();
          } catch(ComicsException ex)
          {
@@ -387,6 +400,7 @@ public class ReaderApp
          _todayButton.setEnabled(!r.isToday(_currentComicDate));
       }
       _dateLabel.setText(getCurrentDayFormatted());
+System.out.println("++++ SET _dateLabel to '" + getCurrentDayFormatted());
 
       String group = (String) _groupCombo.getSelectedItem();
       boolean isFavorite =
@@ -466,8 +480,15 @@ public class ReaderApp
 
    private String getCurrentDayFormatted()
    {
+//      DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+//      return dateFormat.format(_currentDate.getTime());
+      return getFormattedDate(_currentDate.getTime());
+   }
+
+   private String getFormattedDate(Date dt)
+   {
       DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-      return dateFormat.format(_currentDate.getTime());
+      return dateFormat.format(dt);
    }
 
 
@@ -835,7 +856,10 @@ public class ReaderApp
    private void rescaleImage()
    {
       if(null == _originalImage)
+      {
+         _comicImage.setIcon(null);
          return;
+      }
       Rectangle imageArea = _comicImage.getVisibleRect();
       int w = (int) imageArea.getWidth();
       int h = (int) imageArea.getHeight();

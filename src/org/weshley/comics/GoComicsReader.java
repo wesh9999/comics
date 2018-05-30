@@ -164,6 +164,9 @@ public class GoComicsReader
    private byte[] getImageDataInternal(String imageSrc)
       throws IOException
    {
+      if((null == imageSrc) || imageSrc.isEmpty())
+         return null;
+
       URL url = new URL(imageSrc);
       URLConnection conn = url.openConnection();
 // FIXME - hardcoded timeout? retry somehow?
@@ -186,6 +189,8 @@ public class GoComicsReader
       String url = _url + "/" + comicUri;
       Document doc = Jsoup.connect(url).get();
       Element picture = doc.select("picture.item-comic-image").first();
+      if(null == picture)
+         return null;
       Element img = picture.getElementsByTag("img").first();
       return img.attributes().get("src");
    }

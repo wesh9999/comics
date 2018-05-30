@@ -94,6 +94,7 @@ public class ArcamaxReader
    public Object setDate(Object currentDay)
    {
       // doesn't support random date navigation
+      warn("Arcamax doesn't support navigating to arbitrary date!");
       return null;
    }
 
