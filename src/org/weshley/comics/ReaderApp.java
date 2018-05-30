@@ -400,7 +400,6 @@ public class ReaderApp
          _todayButton.setEnabled(!r.isToday(_currentComicDate));
       }
       _dateLabel.setText(getCurrentDayFormatted());
-System.out.println("++++ SET _dateLabel to '" + getCurrentDayFormatted());
 
       String group = (String) _groupCombo.getSelectedItem();
       boolean isFavorite =
