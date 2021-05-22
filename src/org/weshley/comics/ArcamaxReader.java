@@ -141,7 +141,10 @@ public class ArcamaxReader
    private byte[] getImageDataInternal(String imageSrc)
       throws IOException
    {
-      URL url = new URL(_url + imageSrc);
+      // at some point around 20 May 2021, imageSrc changed to be the full
+      // url of the image....
+      URL url = new URL(/*_url + */imageSrc);
+
       URLConnection conn = url.openConnection();
 // FIXME - hardcoded timeout? retry somehow?
       conn.setReadTimeout(60*1000);  // 60s timeout
