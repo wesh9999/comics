@@ -2,6 +2,7 @@ package org.weshley.comics;
 
 import org.ini4j.Ini;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -188,11 +189,36 @@ public class GoComicsReader
    {
       String url = _url + "/" + comicUri;
       Document doc = Jsoup.connect(url).get();
-      Element picture = doc.select("picture.item-comic-image").first();
-      if(null == picture)
+
+      Element picture = null;
+      Elements headList = doc.select("head");
+      if((null == headList) || headList.isEmpty())
+      {
+         System.err.println("ERROR:  Could not find document head");
          return null;
-      Element img = picture.getElementsByTag("img").first();
-      return img.attributes().get("src");
+      }
+      Elements links = headList.first().select("link");
+      if((null == links) || links.isEmpty())
+      {
+         System.err.println("ERROR:  Could not links in document head");
+         return null;
+      }
+      for(Element e : links)
+      {
+         Attributes attrSet = e.attributes();
+         String val = attrSet.get("imageSrcSet");
+         if(null != val)
+         {
+            int idx = val.indexOf("?");
+            if(-1 == idx)
+               return null;
+            String pictureUrl = val.substring(0, idx);
+            return pictureUrl;
+         }
+      }
+
+      System.err.println("ERROR:  Could not find link with imageSrcSet attribute");
+      return null;
    }
 
 
