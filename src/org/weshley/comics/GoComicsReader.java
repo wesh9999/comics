@@ -1,6 +1,7 @@
 package org.weshley.comics;
 
 import org.ini4j.Ini;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.Document;
@@ -153,7 +154,16 @@ public class GoComicsReader
          Date dt = cal.getTime();
          DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
          String comicUri = comicName + "/" + dateFormat.format(dt);
-         String src = getImageSource(comicUri);
+         String src = null;
+         try
+         {
+            src = getImageSource(comicUri);
+         }
+         catch(HttpStatusException hex)
+         {
+            // if we get this, try without the date.  probably don't have this comic on this day so just so the last one
+            src = getImageSource(comicName);
+         }
          return getImageDataInternal(src);
       }
       catch(Exception ex)
@@ -191,13 +201,7 @@ public class GoComicsReader
       Document doc = Jsoup.connect(url).get();
 
       Element picture = null;
-      Elements headList = doc.select("head");
-      if((null == headList) || headList.isEmpty())
-      {
-         System.err.println("ERROR:  Could not find document head");
-         return null;
-      }
-      Elements links = headList.first().select("link");
+      Elements links = doc.select("link");
       if((null == links) || links.isEmpty())
       {
          System.err.println("ERROR:  Could not links in document head");
@@ -210,10 +214,11 @@ public class GoComicsReader
          if(null != val)
          {
             int idx = val.indexOf("?");
-            if(-1 == idx)
-               return null;
-            String pictureUrl = val.substring(0, idx);
-            return pictureUrl;
+            if(-1 != idx)
+            {
+               String pictureUrl = val.substring(0, idx);
+               return pictureUrl;
+            }
          }
       }
 
