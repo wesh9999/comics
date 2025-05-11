@@ -1,11 +1,13 @@
 package org.weshley.comics;
 
 import org.ini4j.Ini;
+import org.json.*;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 
 import java.io.*;
@@ -15,6 +17,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 
 public class GoComicsReader
@@ -193,18 +196,58 @@ public class GoComicsReader
       return ostream.toByteArray();
    }
 
-
    private String getImageSource(String comicUri)
       throws IOException
    {
       String url = _url + "/" + comicUri;
       Document doc = Jsoup.connect(url).get();
+      String pictureUrl = getPictureUrlMay2025(doc);
+//      if(null == pictureUrl)
+//         pictureUrl = getPictureUrlApril2025(doc);
+      if(null == pictureUrl)
+      {
+         System.err.println("ERROR:  Could not find image in document");
+         return null;
+      }
+      return pictureUrl;
+   }
 
-      Element picture = null;
+   private String getPictureUrlMay2025(Document doc)
+   {
+      Elements divs = doc.select("div");
+      if((null == divs) || divs.isEmpty())
+         return null;
+      for(Element e : divs)
+      {
+         Attributes attrSet = e.attributes();
+         String val = attrSet.get("class");
+         if((null != val) && val.startsWith("ShowComicViewer_showComicViewer__comic"))
+         {
+            if(e.childNodeSize() == 1)
+            {
+               Elements scripts = e.select("script");
+               if(scripts.size() == 1)
+               {
+                  if(scripts.get(0).dataNodes().size() == 1)
+                  {
+                     String json = scripts.get(0).dataNodes().get(0).outerHtml();
+                     JSONObject jObj = new JSONObject(json);
+                     String url = jObj.getString("contentUrl");
+                     return url;
+                  }
+               }
+            }
+         }
+      }
+      return null;
+   }
+
+   private String getPictureUrlApril2025(Document doc)
+   {
       Elements links = doc.select("link");
       if((null == links) || links.isEmpty())
       {
-         System.err.println("ERROR:  Could not links in document head");
+         //System.err.println("ERROR:  Could not links in document head");
          return null;
       }
       for(Element e : links)
@@ -222,7 +265,7 @@ public class GoComicsReader
          }
       }
 
-      System.err.println("ERROR:  Could not find link with imageSrcSet attribute");
+      //System.err.println("ERROR:  Could not find link with imageSrcSet attribute");
       return null;
    }
 

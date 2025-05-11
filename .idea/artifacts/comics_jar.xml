@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="comics:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/comics_jar</output-path>
+    <root id="archive" name="comics.jar">
+      <element id="module-output" name="comics" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/jars/jsoup-1.11.2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/jars/ini4j-0.5.4.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/jars/json-20250107.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
