@@ -201,15 +201,35 @@ public class GoComicsReader
    {
       String url = _url + "/" + comicUri;
       Document doc = Jsoup.connect(url).get();
-      String pictureUrl = getPictureUrlMay2025(doc);
-//      if(null == pictureUrl)
-//         pictureUrl = getPictureUrlApril2025(doc);
+//      String pictureUrl = getPictureUrlApril2025(doc);
+//      String pictureUrl = getPictureUrlMay2025(doc);
+      String pictureUrl = getPictureUrlJune2025(doc);
       if(null == pictureUrl)
       {
          System.err.println("ERROR:  Could not find image in document");
+//         System.out.println(doc.toString());
          return null;
       }
       return pictureUrl;
+   }
+
+   private String getPictureUrlJune2025(Document doc)
+   {
+      Elements metas = doc.select("meta");
+      if((null == metas) || metas.isEmpty())
+         return null;
+      for(Element e : metas)
+      {
+         Attributes attrSet = e.attributes();
+         String prop = attrSet.get("property");
+         if((null != prop) && prop.equals("og:image"))
+         {
+            String content = attrSet.get("content");
+            if(null != content)
+               return content;
+         }
+      }
+      return null;
    }
 
    private String getPictureUrlMay2025(Document doc)
